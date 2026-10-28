@@ -92,17 +92,85 @@ void DocumentRepository::upsertTermStats(const std::string&, long long, int) {}
 
 void DocumentRepository::deleteTermStats(long long) {}
 
-void DocumentRepository::insertSearchHistory(const SearchHistoryEntry&) {}
-
-std::vector<SearchHistoryEntry> DocumentRepository::getRecentSearches(int) {
-    return {};
+void DocumentRepository::insertSearchHistory(const SearchHistoryEntry& entry) {
+    pqxx::work txn(*conn_);
+    txn.exec(
+        "INSERT INTO search_history (query_text, query_type, requested_limit, result_count, elapsed_us) "
+        "VALUES ($1, $2, $3, $4, $5);",
+        pqxx::params{
+            entry.queryText,
+            entry.queryType,
+            entry.requestedLimit,
+            entry.resultCount,
+            entry.elapsedMicros
+        }
+    );
+    txn.commit();
 }
 
-long long DocumentRepository::insertBenchmarkRun(const BenchmarkRun&) {
-    return 0;
+std::vector<SearchHistoryEntry> DocumentRepository::getRecentSearches(int limit) {
+    pqxx::work txn(*conn_);
+    auto rows = txn.exec(
+        "SELECT query_text, query_type, requested_limit, result_count, elapsed_us "
+        "FROM search_history "
+        "ORDER BY created_at DESC, search_id DESC "
+        "LIMIT $1;",
+        pqxx::params{limit}
+    );
+
+    std::vector<SearchHistoryEntry> entries;
+    entries.reserve(rows.size());
+
+    for (const auto& row : rows) {
+        SearchHistoryEntry entry;
+        entry.queryText = row["query_text"].c_str();
+        entry.queryType = row["query_type"].c_str();
+        entry.requestedLimit = row["requested_limit"].as<int>();
+        entry.resultCount = row["result_count"].as<int>();
+        entry.elapsedMicros = row["elapsed_us"].as<long long>();
+        entries.push_back(std::move(entry));
+    }
+
+    txn.commit();
+    return entries;
 }
 
-void DocumentRepository::insertBenchmarkMeasurement(const BenchmarkMeasurement&) {}
+long long DocumentRepository::insertBenchmarkRun(const BenchmarkRun& run) {
+    pqxx::work txn(*conn_);
+    std::string configJson = run.configuration.empty() ? "{}" : run.configuration;
+    auto rows = txn.exec(
+        "INSERT INTO benchmark_runs (dataset_name, dataset_size, algorithm_name, operation_name, configuration) "
+        "VALUES ($1, $2, $3, $4, $5::jsonb) "
+        "RETURNING benchmark_run_id;",
+        pqxx::params{
+            run.datasetName,
+            run.datasetSize,
+            run.algorithmName,
+            run.operationName,
+            configJson
+        }
+    );
+
+    long long runId = rows[0]["benchmark_run_id"].as<long long>();
+    txn.commit();
+    return runId;
+}
+
+void DocumentRepository::insertBenchmarkMeasurement(const BenchmarkMeasurement& m) {
+    pqxx::work txn(*conn_);
+    txn.exec(
+        "INSERT INTO benchmark_measurements (benchmark_run_id, iteration_number, elapsed_us, result_count, memory_bytes) "
+        "VALUES ($1, $2, $3, $4, $5);",
+        pqxx::params{
+            m.benchmarkRunId,
+            m.iterationNumber,
+            m.elapsedMicros,
+            m.resultCount,
+            m.memoryBytes
+        }
+    );
+    txn.commit();
+}
 
 void DocumentRepository::executeNonQuery(const std::string& sql,
                                         const std::vector<std::string>&) {
