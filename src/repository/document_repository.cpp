@@ -1,4 +1,5 @@
 #include "repository/document_repository.hpp"
+#include <chrono>
 #include <stdexcept>
 
 DocumentRepository::DocumentRepository(const std::string& connectionString)
@@ -7,7 +8,9 @@ DocumentRepository::DocumentRepository(const std::string& connectionString)
 std::vector<Document> DocumentRepository::getAllDocuments() {
     pqxx::work txn(*conn_);
     auto rows = txn.exec(
-        "SELECT document_id, title, body, category, source "
+        "SELECT document_id, title, body, category, source, "
+        "FLOOR(EXTRACT(EPOCH FROM created_at) * 1000000)::BIGINT AS created_at_us, "
+        "FLOOR(EXTRACT(EPOCH FROM updated_at) * 1000000)::BIGINT AS updated_at_us "
         "FROM documents "
         "ORDER BY document_id ASC;"
     );
@@ -22,6 +25,10 @@ std::vector<Document> DocumentRepository::getAllDocuments() {
         doc.body = row["body"].c_str();
         doc.category = row["category"].is_null() ? "" : row["category"].c_str();
         doc.source = row["source"].is_null() ? "" : row["source"].c_str();
+        doc.createdAt = std::chrono::system_clock::time_point{
+            std::chrono::microseconds{row["created_at_us"].as<long long>()}};
+        doc.updatedAt = std::chrono::system_clock::time_point{
+            std::chrono::microseconds{row["updated_at_us"].as<long long>()}};
         documents.push_back(std::move(doc));
     }
 
@@ -32,7 +39,9 @@ std::vector<Document> DocumentRepository::getAllDocuments() {
 Document DocumentRepository::getDocumentById(long long id) {
     pqxx::work txn(*conn_);
     auto rows = txn.exec(
-        "SELECT document_id, title, body, category, source "
+        "SELECT document_id, title, body, category, source, "
+        "FLOOR(EXTRACT(EPOCH FROM created_at) * 1000000)::BIGINT AS created_at_us, "
+        "FLOOR(EXTRACT(EPOCH FROM updated_at) * 1000000)::BIGINT AS updated_at_us "
         "FROM documents "
         "WHERE document_id = $1;",
         pqxx::params{id}
@@ -49,6 +58,10 @@ Document DocumentRepository::getDocumentById(long long id) {
     doc.body = row["body"].c_str();
     doc.category = row["category"].is_null() ? "" : row["category"].c_str();
     doc.source = row["source"].is_null() ? "" : row["source"].c_str();
+    doc.createdAt = std::chrono::system_clock::time_point{
+        std::chrono::microseconds{row["created_at_us"].as<long long>()}};
+    doc.updatedAt = std::chrono::system_clock::time_point{
+        std::chrono::microseconds{row["updated_at_us"].as<long long>()}};
 
     txn.commit();
     return doc;
