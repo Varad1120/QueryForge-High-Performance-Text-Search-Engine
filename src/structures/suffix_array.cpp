@@ -1,6 +1,7 @@
 #include "structures/suffix_array.hpp"
 
 #include <algorithm>
+#include <cstddef>
 #include <limits>
 #include <numeric>
 #include <stdexcept>
@@ -21,6 +22,67 @@ std::size_t SuffixArray::size() const {
 
 const std::string& SuffixArray::text() const {
     return text_;
+}
+
+std::vector<int> SuffixArray::search(const std::string& pattern) const {
+    if (text_.empty() || pattern.empty() || pattern.size() > text_.size()) {
+        return {};
+    }
+
+    std::size_t first = 0;
+    std::size_t last = sa_.size();
+    while (first < last) {
+        const std::size_t middle = first + (last - first) / 2;
+        if (compareAtPosition(sa_[middle], pattern) < 0) {
+            first = middle + 1;
+        } else {
+            last = middle;
+        }
+    }
+    const std::size_t matchBegin = first;
+
+    if (matchBegin == sa_.size() ||
+        compareAtPosition(sa_[matchBegin], pattern) != 0) {
+        return {};
+    }
+
+    last = sa_.size();
+    while (first < last) {
+        const std::size_t middle = first + (last - first) / 2;
+        if (compareAtPosition(sa_[middle], pattern) <= 0) {
+            first = middle + 1;
+        } else {
+            last = middle;
+        }
+    }
+
+    return std::vector<int>(sa_.begin() + static_cast<std::ptrdiff_t>(matchBegin),
+                            sa_.begin() + static_cast<std::ptrdiff_t>(first));
+}
+
+int SuffixArray::compareAtPosition(int pos, const std::string& pattern) const {
+    if (pos < 0 || static_cast<std::size_t>(pos) >= text_.size()) {
+        return -1;
+    }
+
+    const std::size_t suffixStart = static_cast<std::size_t>(pos);
+    const std::size_t suffixLength = text_.size() - suffixStart;
+    const std::size_t comparedLength = std::min(suffixLength, pattern.size());
+    for (std::size_t i = 0; i < comparedLength; ++i) {
+        const auto suffixByte = static_cast<unsigned char>(text_[suffixStart + i]);
+        const auto patternByte = static_cast<unsigned char>(pattern[i]);
+        if (suffixByte < patternByte) {
+            return -1;
+        }
+        if (suffixByte > patternByte) {
+            return 1;
+        }
+    }
+
+    if (comparedLength == pattern.size()) {
+        return 0;
+    }
+    return -1;
 }
 
 void SuffixArray::buildPrefixDoubling() {

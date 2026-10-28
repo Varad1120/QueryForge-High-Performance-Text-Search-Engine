@@ -8,8 +8,9 @@ public:
     // Build the suffix array from the given normalized text.
     explicit SuffixArray(const std::string& normalizedText);
 
-    // Return all starting offsets in the text where `pattern` occurs.
-    // K2 provides the search implementation.
+    // Return all starting offsets where `pattern` occurs, in suffix-array
+    // order (lexicographic order of the matching suffixes). Empty patterns
+    // and patterns with no match return an empty vector.
     std::vector<int> search(const std::string& pattern) const;
 
     // Number of suffixes (= text length).
@@ -24,6 +25,7 @@ private:
 
     void buildPrefixDoubling();
 
-    // K2 uses this to compare a suffix with a search pattern.
+    // Compare the suffix at pos with pattern; zero means pattern is a prefix
+    // of the suffix.
     int compareAtPosition(int pos, const std::string& pattern) const;
 };
