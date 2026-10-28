@@ -24,11 +24,33 @@ if (NOT Catch2_FOUND)
     FetchContent_MakeAvailable(Catch2)
 endif()
 
-# Find libpqxx for repository persistence (optional for pure structure tests)
+# Find libpqxx for repository persistence
+if (APPLE)
+    list(APPEND CMAKE_PREFIX_PATH "/opt/homebrew" "/opt/homebrew/opt/libpqxx" "/opt/homebrew/opt/libpq")
+endif()
+
 find_package(PkgConfig QUIET)
 find_package(libpqxx QUIET)
-if (NOT libpqxx_FOUND AND PKG_CONFIG_FOUND)
-    pkg_check_modules(LIBPQXX QUIET libpqxx)
+if (NOT TARGET libpqxx::pqxx)
+    find_path(LIBPQXX_INCLUDE_DIR pqxx/pqxx PATHS /opt/homebrew/include /opt/homebrew/opt/libpqxx/include /usr/local/include)
+    find_library(LIBPQXX_LIBRARY NAMES pqxx PATHS /opt/homebrew/lib /opt/homebrew/opt/libpqxx/lib /usr/local/lib)
+    find_path(LIBPQ_INCLUDE_DIR libpq-fe.h PATHS /opt/homebrew/include /opt/homebrew/opt/libpq/include /usr/local/include)
+    find_library(LIBPQ_LIBRARY NAMES pq PATHS /opt/homebrew/lib /opt/homebrew/opt/libpq/lib /usr/local/lib)
+    if (LIBPQXX_INCLUDE_DIR AND LIBPQXX_LIBRARY)
+        add_library(libpqxx::pqxx UNKNOWN IMPORTED)
+        set_target_properties(libpqxx::pqxx PROPERTIES
+            IMPORTED_LOCATION "${LIBPQXX_LIBRARY}"
+            INTERFACE_INCLUDE_DIRECTORIES "${LIBPQXX_INCLUDE_DIR}"
+        )
+        if (LIBPQ_INCLUDE_DIR)
+            set_property(TARGET libpqxx::pqxx APPEND PROPERTY
+                INTERFACE_INCLUDE_DIRECTORIES "${LIBPQ_INCLUDE_DIR}")
+        endif()
+        if (LIBPQ_LIBRARY)
+            set_property(TARGET libpqxx::pqxx APPEND PROPERTY
+                INTERFACE_LINK_LIBRARIES "${LIBPQ_LIBRARY}")
+        endif()
+    endif()
 endif()
 
 # Library: Normalizer
@@ -97,10 +119,13 @@ if (EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/src/engine/search_engine.cpp)
     endif()
 endif()
 
+find_package(Threads REQUIRED)
+
 # Main executable
 if (EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/src/main.cpp)
     add_executable(queryforge ${CMAKE_CURRENT_SOURCE_DIR}/src/main.cpp)
     target_include_directories(queryforge PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
+    target_link_libraries(queryforge PRIVATE Threads::Threads)
     if (TARGET search_engine_lib)
         target_link_libraries(queryforge PRIVATE search_engine_lib)
     endif()
@@ -109,6 +134,9 @@ if (EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/src/main.cpp)
     endif()
     if (TARGET normalizer_lib)
         target_link_libraries(queryforge PRIVATE normalizer_lib)
+    endif()
+    if (TARGET document_repository_lib)
+        target_link_libraries(queryforge PRIVATE document_repository_lib)
     endif()
 endif()
 

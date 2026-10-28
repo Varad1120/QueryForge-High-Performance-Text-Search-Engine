@@ -221,3 +221,36 @@ void SearchEngine::indexDocument(const Document& doc) {
     avlTree_->insert(doc.id);
     documentCache_.emplace(doc.id, doc);
 }
+
+void SearchEngine::deindexDocument(long long id) {
+    auto it = documentCache_.find(id);
+    if (it == documentCache_.end()) {
+        return;
+    }
+    trie_.removeDocument(id);
+    suffixArrays_.erase(id);
+    if (avlTree_) {
+        avlTree_->remove(id);
+    }
+    documentCache_.erase(it);
+}
+
+long long SearchEngine::addDocument(Document doc) {
+    if (doc.id <= 0) {
+        long long newId = repo_.insertDocument(doc);
+        doc.id = newId;
+    }
+    indexDocument(doc);
+    return doc.id;
+}
+
+void SearchEngine::updateDocument(Document doc) {
+    repo_.updateDocument(doc);
+    deindexDocument(doc.id);
+    indexDocument(doc);
+}
+
+void SearchEngine::deleteDocument(long long id) {
+    repo_.deleteDocument(id);
+    deindexDocument(id);
+}
