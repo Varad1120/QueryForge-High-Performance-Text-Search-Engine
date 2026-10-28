@@ -37,6 +37,10 @@ public:
     // Insert a normalized term for a given document.
     void insertTerm(const string& term, long long documentId);
 
+    // Remove a normalized term for a given document.
+    // Decrements document frequency. Prunes dead nodes if safe.
+    void removeTerm(const string& term, long long documentId);
+
     // Return up to maxSuggestions completions for the given normalized prefix,
     // sorted by documentFreq descending.
     vector<TrieSuggestion> autocomplete(
@@ -45,6 +49,9 @@ public:
 
     // Return true if the exact term exists in the Trie.
     bool contains(const string& term) const;
+
+    // Remove all entries belonging to a specific document.
+    void removeDocument(long long documentId);
 
     size_t uniqueTermCount() const;
 
@@ -56,4 +63,15 @@ private:
     void collectSuggestions(const TrieNode* node,
                             const string& prefix,
                             vector<TrieSuggestion>& out) const;
+
+    bool removeTermHelper(TrieNode* current,
+                          const string& term,
+                          size_t depth,
+                          long long documentId,
+                          bool& removed);
+
+    void collectTermsForDoc(const TrieNode* node,
+                            string& currentPath,
+                            long long documentId,
+                            vector<string>& terms) const;
 };

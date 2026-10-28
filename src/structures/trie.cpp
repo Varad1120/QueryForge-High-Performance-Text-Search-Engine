@@ -102,6 +102,84 @@ vector<TrieSuggestion> Trie::autocomplete(
     return suggestions;
 }
 
+void Trie::removeTerm(const string& term, long long documentId) {
+    if (term.empty()) {
+        return;
+    }
+
+    bool removed = false;
+    removeTermHelper(root_.get(), term, 0, documentId, removed);
+}
+
+bool Trie::removeTermHelper(TrieNode* current,
+                            const string& term,
+                            size_t depth,
+                            long long documentId,
+                            bool& removed) {
+    if (depth == term.size()) {
+        if (!current->isTerminal || current->documentIds.find(documentId) == current->documentIds.end()) {
+            removed = false;
+            return false;
+        }
+
+        current->documentIds.erase(documentId);
+        current->documentFreq = current->documentIds.size();
+        removed = true;
+
+        if (current->documentFreq == 0) {
+            current->isTerminal = false;
+            if (uniqueTerms_ > 0) {
+                --uniqueTerms_;
+            }
+        }
+
+        return !current->isTerminal && current->children.empty() && current != root_.get();
+    }
+
+    char c = term[depth];
+    auto it = current->children.find(c);
+    if (it == current->children.end()) {
+        removed = false;
+        return false;
+    }
+
+    bool shouldPrune = removeTermHelper(it->second.get(), term, depth + 1, documentId, removed);
+    if (shouldPrune) {
+        current->children.erase(it);
+    }
+
+    return !current->isTerminal && current->children.empty() && current != root_.get();
+}
+
+void Trie::collectTermsForDoc(const TrieNode* node,
+                              string& currentPath,
+                              long long documentId,
+                              vector<string>& terms) const {
+    if (!node) {
+        return;
+    }
+
+    if (node->isTerminal && node->documentIds.find(documentId) != node->documentIds.end()) {
+        terms.push_back(currentPath);
+    }
+
+    for (const auto& pair : node->children) {
+        currentPath.push_back(pair.first);
+        collectTermsForDoc(pair.second.get(), currentPath, documentId, terms);
+        currentPath.pop_back();
+    }
+}
+
+void Trie::removeDocument(long long documentId) {
+    vector<string> termsToRemove;
+    string path;
+    collectTermsForDoc(root_.get(), path, documentId, termsToRemove);
+
+    for (const auto& term : termsToRemove) {
+        removeTerm(term, documentId);
+    }
+}
+
 size_t Trie::uniqueTermCount() const {
     return uniqueTerms_;
 }
