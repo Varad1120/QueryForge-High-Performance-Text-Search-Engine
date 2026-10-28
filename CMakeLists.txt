@@ -155,6 +155,15 @@ if (EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/tests/db_repository_tests.cpp AND TARGET 
     add_executable(db_repository_tests ${CMAKE_CURRENT_SOURCE_DIR}/tests/db_repository_tests.cpp)
     target_link_libraries(db_repository_tests PRIVATE document_repository_lib Catch2::Catch2WithMain)
     add_test(NAME db_repository_tests COMMAND db_repository_tests)
+    set_tests_properties(db_repository_tests PROPERTIES
+        LABELS "database;integration"
+    )
+    if (NOT DEFINED ENV{QUERYFORGE_DB_URL} OR "$ENV{QUERYFORGE_DB_URL}" STREQUAL "")
+        # Avoid running the libpqxx-linked process when no database was
+        # configured; connection failures in this environment can abort in
+        # libpqxx teardown. Reconfigure after setting QUERYFORGE_DB_URL.
+        set_tests_properties(db_repository_tests PROPERTIES DISABLED TRUE)
+    endif()
 endif()
 
 # Integration Tests
@@ -162,4 +171,14 @@ if (EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/tests/integration_tests.cpp AND TARGET se
     add_executable(integration_tests ${CMAKE_CURRENT_SOURCE_DIR}/tests/integration_tests.cpp)
     target_link_libraries(integration_tests PRIVATE search_engine_lib Catch2::Catch2WithMain)
     add_test(NAME integration_tests COMMAND integration_tests)
+endif()
+
+# Search Engine Unit Tests
+if (EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/tests/search_engine_tests.cpp AND TARGET search_engine_lib)
+    add_executable(search_engine_tests
+        ${CMAKE_CURRENT_SOURCE_DIR}/tests/search_engine_tests.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/tests/search_engine_test_main.cpp
+    )
+    target_link_libraries(search_engine_tests PRIVATE search_engine_lib Catch2::Catch2)
+    add_test(NAME search_engine_tests COMMAND search_engine_tests)
 endif()
