@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.16)
 project(queryforge VERSION 1.0.0 LANGUAGES CXX)
 
-set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
@@ -148,6 +148,13 @@ if (EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/tests/max_heap_tests.cpp AND TARGET max_h
     add_executable(max_heap_tests ${CMAKE_CURRENT_SOURCE_DIR}/tests/max_heap_tests.cpp)
     target_link_libraries(max_heap_tests PRIVATE max_heap_lib Catch2::Catch2WithMain)
     add_test(NAME max_heap_tests COMMAND max_heap_tests)
+endif()
+
+# DB Repository Tests
+if (EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/tests/db_repository_tests.cpp AND TARGET document_repository_lib)
+    add_executable(db_repository_tests ${CMAKE_CURRENT_SOURCE_DIR}/tests/db_repository_tests.cpp)
+    target_link_libraries(db_repository_tests PRIVATE document_repository_lib Catch2::Catch2WithMain)
+    add_test(NAME db_repository_tests COMMAND db_repository_tests)
 endif()
 
 # Integration Tests
