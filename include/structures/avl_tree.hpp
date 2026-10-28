@@ -20,8 +20,10 @@ public:
     AVLTree& operator=(const AVLTree&) = delete;
 
     void insert(long long key);
+    void remove(long long key);
     bool contains(long long key) const;
 
+    std::vector<long long> rangeQuery(long long low, long long high) const;
     std::vector<long long> inOrder() const;
 
     int  height() const;
@@ -39,8 +41,12 @@ private:
     AVLNode* rebalance(AVLNode* n);
 
     AVLNode* insertRec(AVLNode* n, long long key);
+    AVLNode* removeRec(AVLNode* n, long long key);
+    AVLNode* minNode(AVLNode* n) const;
 
     void inOrderRec(const AVLNode* n, std::vector<long long>& out) const;
+    void rangeRec(const AVLNode* n, long long lo, long long hi,
+                  std::vector<long long>& out) const;
 
     void destroyRec(AVLNode* n);
     bool isValidRec(const AVLNode* n, long long* minKey, long long* maxKey) const;

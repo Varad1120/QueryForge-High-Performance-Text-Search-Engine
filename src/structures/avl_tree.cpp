@@ -17,6 +17,10 @@ void AVLTree::insert(long long key) {
     root_ = insertRec(root_, key);
 }
 
+void AVLTree::remove(long long key) {
+    root_ = removeRec(root_, key);
+}
+
 bool AVLTree::contains(long long key) const {
     const AVLNode* cur = root_;
     while (cur) {
@@ -30,6 +34,12 @@ bool AVLTree::contains(long long key) const {
 std::vector<long long> AVLTree::inOrder() const {
     std::vector<long long> out;
     inOrderRec(root_, out);
+    return out;
+}
+
+std::vector<long long> AVLTree::rangeQuery(long long low, long long high) const {
+    std::vector<long long> out;
+    rangeRec(root_, low, high, out);
     return out;
 }
 
@@ -106,11 +116,43 @@ AVLNode* AVLTree::insertRec(AVLNode* n, long long key) {
     return rebalance(n);
 }
 
+AVLNode* AVLTree::minNode(AVLNode* n) const {
+    while (n->left) n = n->left;
+    return n;
+}
+
+AVLNode* AVLTree::removeRec(AVLNode* n, long long key) {
+    if (!n) return nullptr;
+
+    if (key < n->key)      n->left  = removeRec(n->left,  key);
+    else if (key > n->key) n->right = removeRec(n->right, key);
+    else {
+        if (!n->left || !n->right) {
+            AVLNode* child = n->left ? n->left : n->right;
+            delete n;
+            return child;
+        }
+        AVLNode* succ = minNode(n->right);
+        n->key   = succ->key;
+        n->right = removeRec(n->right, succ->key);
+    }
+
+    return rebalance(n);
+}
+
 void AVLTree::inOrderRec(const AVLNode* n, std::vector<long long>& out) const {
     if (!n) return;
     inOrderRec(n->left, out);
     out.push_back(n->key);
     inOrderRec(n->right, out);
+}
+
+void AVLTree::rangeRec(const AVLNode* n, long long lo, long long hi,
+                        std::vector<long long>& out) const {
+    if (!n) return;
+    if (n->key > lo)                  rangeRec(n->left,  lo, hi, out);
+    if (n->key >= lo && n->key <= hi) out.push_back(n->key);
+    if (n->key < hi)                  rangeRec(n->right, lo, hi, out);
 }
 
 bool AVLTree::isValidRec(const AVLNode* n, long long* minKey, long long* maxKey) const {
