@@ -81,6 +81,20 @@ void DocumentRepository::updateDocument(const Document& doc) {
 
 void DocumentRepository::deleteDocument(long long id) {
     pqxx::work txn(*conn_);
+    auto rows = txn.exec(
+        "SELECT term_id FROM document_terms WHERE document_id = $1;",
+        pqxx::params{id}
+    );
+
+    for (const auto& row : rows) {
+        long long termId = row["term_id"].as<long long>();
+        txn.exec(
+            "UPDATE terms SET document_frequency = GREATEST(0, document_frequency - 1) "
+            "WHERE term_id = $1;",
+            pqxx::params{termId}
+        );
+    }
+
     txn.exec(
         "DELETE FROM documents WHERE document_id = $1;",
         pqxx::params{id}
@@ -88,9 +102,81 @@ void DocumentRepository::deleteDocument(long long id) {
     txn.commit();
 }
 
-void DocumentRepository::upsertTermStats(const std::string&, long long, int) {}
+void DocumentRepository::upsertTermStats(const std::string& normalizedTerm,
+                                         long long documentId,
+                                         int termFrequency) {
+    if (normalizedTerm.empty() || termFrequency <= 0) {
+        return;
+    }
 
-void DocumentRepository::deleteTermStats(long long) {}
+    pqxx::work txn(*conn_);
+    txn.exec(
+        "INSERT INTO terms (normalized_term, document_frequency) "
+        "VALUES ($1, 0) "
+        "ON CONFLICT (normalized_term) DO NOTHING;",
+        pqxx::params{normalizedTerm}
+    );
+
+    auto termRows = txn.exec(
+        "SELECT term_id FROM terms WHERE normalized_term = $1;",
+        pqxx::params{normalizedTerm}
+    );
+
+    if (termRows.empty()) {
+        txn.abort();
+        return;
+    }
+    long long termId = termRows[0]["term_id"].as<long long>();
+
+    auto checkRows = txn.exec(
+        "SELECT 1 FROM document_terms WHERE document_id = $1 AND term_id = $2;",
+        pqxx::params{documentId, termId}
+    );
+
+    if (checkRows.empty()) {
+        txn.exec(
+            "INSERT INTO document_terms (document_id, term_id, term_frequency) "
+            "VALUES ($1, $2, $3);",
+            pqxx::params{documentId, termId, termFrequency}
+        );
+        txn.exec(
+            "UPDATE terms SET document_frequency = document_frequency + 1 WHERE term_id = $1;",
+            pqxx::params{termId}
+        );
+    } else {
+        txn.exec(
+            "UPDATE document_terms SET term_frequency = $1 "
+            "WHERE document_id = $2 AND term_id = $3;",
+            pqxx::params{termFrequency, documentId, termId}
+        );
+    }
+
+    txn.commit();
+}
+
+void DocumentRepository::deleteTermStats(long long documentId) {
+    pqxx::work txn(*conn_);
+    auto rows = txn.exec(
+        "SELECT term_id FROM document_terms WHERE document_id = $1;",
+        pqxx::params{documentId}
+    );
+
+    for (const auto& row : rows) {
+        long long termId = row["term_id"].as<long long>();
+        txn.exec(
+            "UPDATE terms SET document_frequency = GREATEST(0, document_frequency - 1) "
+            "WHERE term_id = $1;",
+            pqxx::params{termId}
+        );
+    }
+
+    txn.exec(
+        "DELETE FROM document_terms WHERE document_id = $1;",
+        pqxx::params{documentId}
+    );
+
+    txn.commit();
+}
 
 void DocumentRepository::insertSearchHistory(const SearchHistoryEntry& entry) {
     pqxx::work txn(*conn_);

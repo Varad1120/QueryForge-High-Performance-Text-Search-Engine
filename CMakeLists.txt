@@ -150,6 +150,13 @@ if (EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/tests/max_heap_tests.cpp AND TARGET max_h
     add_test(NAME max_heap_tests COMMAND max_heap_tests)
 endif()
 
+# DB Repository Tests
+if (EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/tests/db_repository_tests.cpp AND TARGET document_repository_lib)
+    add_executable(db_repository_tests ${CMAKE_CURRENT_SOURCE_DIR}/tests/db_repository_tests.cpp)
+    target_link_libraries(db_repository_tests PRIVATE document_repository_lib Catch2::Catch2WithMain)
+    add_test(NAME db_repository_tests COMMAND db_repository_tests)
+endif()
+
 # Integration Tests
 if (EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/tests/integration_tests.cpp AND TARGET search_engine_lib)
     add_executable(integration_tests ${CMAKE_CURRENT_SOURCE_DIR}/tests/integration_tests.cpp)
