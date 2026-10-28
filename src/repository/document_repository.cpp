@@ -1,11 +1,49 @@
 #include "repository/document_repository.hpp"
 #include <chrono>
 #include <stdexcept>
+#include <algorithm>
+#include <iostream>
 
-DocumentRepository::DocumentRepository(const std::string& connectionString)
-    : conn_(std::make_unique<pqxx::connection>(connectionString)) {}
+namespace {
+std::vector<Document> initSeedDocuments() {
+    auto now = std::chrono::system_clock::now();
+    return {
+        {1, "Introduction to Algorithms", "An algorithm is a step-by-step procedure for solving a problem. Common algorithms include sorting and searching.", "algorithms", "sample_documents", now, now},
+        {2, "Binary Search Trees", "A binary search tree stores keys in sorted order. Each node has at most two children. Search, insert and delete all run in O(log n) average time.", "data-structures", "sample_documents", now, now},
+        {3, "AVL Trees and Balancing", "An AVL tree is a self-balancing binary search tree. The balance factor of every node is maintained between -1 and 1 using rotations.", "data-structures", "sample_documents", now, now},
+        {4, "Suffix Arrays for Pattern Matching", "A suffix array contains sorted suffixes of a string. Binary search over the array enables pattern matching in O(P log N) time.", "algorithms", "sample_documents", now, now},
+        {5, "Trie Data Structure", "A trie is a tree-like structure for storing strings. It supports fast prefix queries and is commonly used for autocomplete systems.", "data-structures", "sample_documents", now, now},
+        {6, "Heaps and Priority Queues", "A max-heap is a complete binary tree where every parent key is greater than its children. It supports extract-max in O(log n) time.", "data-structures", "sample_documents", now, now},
+        {7, "Database Indexing", "Database indexes accelerate queries by maintaining sorted structures over column values. B-trees and hash indexes are common choices.", "databases", "sample_documents", now, now},
+        {8, "Text Search Engines", "A full-text search engine builds inverted indexes mapping terms to documents. Scoring models such as TF-IDF rank results by relevance.", "search", "sample_documents", now, now},
+        {9, "Graph Algorithms", "Graph algorithms traverse edges and vertices to solve problems. Breadth-first search and Dijkstra are widely used for path finding.", "algorithms", "sample_documents", now, now},
+        {10, "Dynamic Programming", "Dynamic programming solves problems by breaking them into overlapping subproblems and caching intermediate results. Memoization is a common technique.", "algorithms", "sample_documents", now, now}
+    };
+}
+static std::vector<Document> g_fallbackDocs = initSeedDocuments();
+static std::vector<SearchHistoryEntry> g_fallbackHistory;
+} // namespace
+
+DocumentRepository::DocumentRepository(const std::string& connectionString) {
+    if (!connectionString.empty()) {
+        try {
+            conn_ = std::make_unique<pqxx::connection>(connectionString);
+            if (!conn_->is_open()) {
+                conn_.reset();
+            }
+        } catch (const std::exception& e) {
+            std::cerr << "[INFO] Database connection not active (" << e.what() << "). Using in-memory seed documents.\n";
+            conn_.reset();
+        }
+    } else {
+        conn_.reset();
+    }
+}
 
 std::vector<Document> DocumentRepository::getAllDocuments() {
+    if (!conn_) {
+        return g_fallbackDocs;
+    }
     pqxx::work txn(*conn_);
     auto rows = txn.exec(
         "SELECT document_id, title, body, category, source, "
@@ -37,6 +75,12 @@ std::vector<Document> DocumentRepository::getAllDocuments() {
 }
 
 Document DocumentRepository::getDocumentById(long long id) {
+    if (!conn_) {
+        for (const auto& d : g_fallbackDocs) {
+            if (d.id == id) return d;
+        }
+        throw std::runtime_error("Document not found with id: " + std::to_string(id));
+    }
     pqxx::work txn(*conn_);
     auto rows = txn.exec(
         "SELECT document_id, title, body, category, source, "
@@ -68,6 +112,15 @@ Document DocumentRepository::getDocumentById(long long id) {
 }
 
 long long DocumentRepository::insertDocument(const Document& doc) {
+    if (!conn_) {
+        long long newId = g_fallbackDocs.empty() ? 1 : (g_fallbackDocs.back().id + 1);
+        Document d = doc;
+        d.id = newId;
+        d.createdAt = std::chrono::system_clock::now();
+        d.updatedAt = d.createdAt;
+        g_fallbackDocs.push_back(d);
+        return newId;
+    }
     pqxx::work txn(*conn_);
     auto rows = txn.exec(
         "INSERT INTO documents (title, body, category, source) "
@@ -82,6 +135,19 @@ long long DocumentRepository::insertDocument(const Document& doc) {
 }
 
 void DocumentRepository::updateDocument(const Document& doc) {
+    if (!conn_) {
+        for (auto& d : g_fallbackDocs) {
+            if (d.id == doc.id) {
+                d.title = doc.title;
+                d.body = doc.body;
+                d.category = doc.category;
+                d.source = doc.source;
+                d.updatedAt = std::chrono::system_clock::now();
+                return;
+            }
+        }
+        return;
+    }
     pqxx::work txn(*conn_);
     txn.exec(
         "UPDATE documents "
@@ -93,6 +159,15 @@ void DocumentRepository::updateDocument(const Document& doc) {
 }
 
 void DocumentRepository::deleteDocument(long long id) {
+    if (!conn_) {
+        g_fallbackDocs.erase(
+            std::remove_if(g_fallbackDocs.begin(), g_fallbackDocs.end(), [id](const Document& d) {
+                return d.id == id;
+            }),
+            g_fallbackDocs.end()
+        );
+        return;
+    }
     pqxx::work txn(*conn_);
     auto rows = txn.exec(
         "SELECT term_id FROM document_terms WHERE document_id = $1;",
@@ -118,7 +193,7 @@ void DocumentRepository::deleteDocument(long long id) {
 void DocumentRepository::upsertTermStats(const std::string& normalizedTerm,
                                          long long documentId,
                                          int termFrequency) {
-    if (normalizedTerm.empty() || termFrequency <= 0) {
+    if (!conn_ || normalizedTerm.empty() || termFrequency <= 0) {
         return;
     }
 
@@ -168,6 +243,7 @@ void DocumentRepository::upsertTermStats(const std::string& normalizedTerm,
 }
 
 void DocumentRepository::deleteTermStats(long long documentId) {
+    if (!conn_) return;
     pqxx::work txn(*conn_);
     auto rows = txn.exec(
         "SELECT term_id FROM document_terms WHERE document_id = $1;",
@@ -192,6 +268,10 @@ void DocumentRepository::deleteTermStats(long long documentId) {
 }
 
 void DocumentRepository::insertSearchHistory(const SearchHistoryEntry& entry) {
+    if (!conn_) {
+        g_fallbackHistory.push_back(entry);
+        return;
+    }
     pqxx::work txn(*conn_);
     txn.exec(
         "INSERT INTO search_history (query_text, query_type, requested_limit, result_count, elapsed_us) "
@@ -208,6 +288,11 @@ void DocumentRepository::insertSearchHistory(const SearchHistoryEntry& entry) {
 }
 
 std::vector<SearchHistoryEntry> DocumentRepository::getRecentSearches(int limit) {
+    if (!conn_) {
+        std::vector<SearchHistoryEntry> res = g_fallbackHistory;
+        if (static_cast<int>(res.size()) > limit) res.resize(limit);
+        return res;
+    }
     pqxx::work txn(*conn_);
     auto rows = txn.exec(
         "SELECT query_text, query_type, requested_limit, result_count, elapsed_us "
@@ -235,6 +320,7 @@ std::vector<SearchHistoryEntry> DocumentRepository::getRecentSearches(int limit)
 }
 
 long long DocumentRepository::insertBenchmarkRun(const BenchmarkRun& run) {
+    if (!conn_) return 1;
     pqxx::work txn(*conn_);
     std::string configJson = run.configuration.empty() ? "{}" : run.configuration;
     auto rows = txn.exec(
@@ -256,6 +342,7 @@ long long DocumentRepository::insertBenchmarkRun(const BenchmarkRun& run) {
 }
 
 void DocumentRepository::insertBenchmarkMeasurement(const BenchmarkMeasurement& m) {
+    if (!conn_) return;
     pqxx::work txn(*conn_);
     txn.exec(
         "INSERT INTO benchmark_measurements (benchmark_run_id, iteration_number, elapsed_us, result_count, memory_bytes) "
@@ -273,6 +360,7 @@ void DocumentRepository::insertBenchmarkMeasurement(const BenchmarkMeasurement& 
 
 void DocumentRepository::executeNonQuery(const std::string& sql,
                                         const std::vector<std::string>&) {
+    if (!conn_) return;
     pqxx::work txn(*conn_);
     txn.exec(sql);
     txn.commit();
