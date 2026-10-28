@@ -8,7 +8,7 @@ static std::string getTestDbUrl() {
     if (envUrl && std::string(envUrl).length() > 0) {
         return std::string(envUrl);
     }
-    return "host=localhost port=5432 dbname=queryforge user=root password=Password@123";
+    throw std::runtime_error("QUERYFORGE_DB_URL is required for database integration tests");
 }
 
 TEST_CASE("DocumentRepository connects and fetches seeded documents", "[db_repository]") {
