@@ -152,96 +152,248 @@ const char* kHtmlPage = R"rawhtml(<!DOCTYPE html>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>QueryForge — High-Performance Text Search Engine</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&display=swap" rel="stylesheet">
   <style>
     :root {
-      --bg: #0f172a;
-      --card-bg: #1e293b;
-      --accent: #38bdf8;
-      --accent-hover: #0ea5e9;
-      --text: #f8fafc;
-      --text-muted: #94a3b8;
-      --border: #334155;
-      --badge-bg: #0369a1;
-      --highlight: #fef08a;
+      --bg: #0d0f0e;
+      --card-bg: rgba(255,255,255,0.04);
+      --card-border: rgba(255,255,255,0.07);
+      --accent: #f59e0b;
+      --accent-hover: #fbbf24;
+      --accent-dim: rgba(245,158,11,0.13);
+      --green: #10b981;
+      --green-dim: rgba(16,185,129,0.13);
+      --rose: #fb7185;
+      --rose-dim: rgba(251,113,133,0.13);
+      --sand: #c9a96e;
+      --sand-dim: rgba(201,169,110,0.12);
+      --text: #f0ece3;
+      --text-muted: #6b6860;
+      --text-secondary: #a09c94;
+      --border: rgba(255,255,255,0.07);
+      --input-bg: rgba(255,255,255,0.05);
     }
-    * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
-    body { background-color: var(--bg); color: var(--text); padding: 24px; max-width: 1050px; margin: 0 auto; }
-    header { text-align: center; margin-bottom: 28px; }
-    h1 { font-size: 2.2rem; color: #fff; margin-bottom: 8px; }
-    h1 span { color: var(--accent); }
-    .subtitle { color: var(--text-muted); font-size: 1rem; }
-    
-    .structures-badge { display: flex; justify-content: center; gap: 10px; margin-top: 14px; flex-wrap: wrap; }
-    .badge { background: #1e293b; border: 1px solid var(--border); padding: 5px 12px; border-radius: 20px; font-size: 0.82rem; color: var(--accent); }
-    
-    .panel { background: var(--card-bg); border: 1px solid var(--border); border-radius: 12px; padding: 20px; margin-bottom: 24px; }
-    .panel-title { font-size: 1.1rem; font-weight: 600; margin-bottom: 12px; display: flex; align-items: center; justify-content: space-between; }
-    
-    .search-container { position: relative; width: 100%; }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: "Space Grotesk", -apple-system, BlinkMacSystemFont, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      padding: 32px 24px 80px;
+      max-width: 1080px;
+      margin: 0 auto;
+      min-height: 100vh;
+    }
+    header {
+      text-align: center;
+      margin-bottom: 36px;
+      padding: 52px 24px 44px;
+      position: relative;
+      overflow: hidden;
+      border-radius: 22px;
+      border: 1px solid rgba(245,158,11,0.16);
+      background: radial-gradient(ellipse 80% 60% at 50% -10%, rgba(245,158,11,0.12) 0%, transparent 70%), #0d0f0e;
+    }
+    header::after {
+      content: "";
+      position: absolute;
+      top: -40px; left: 50%;
+      transform: translateX(-50%);
+      width: 400px; height: 130px;
+      background: radial-gradient(ellipse, rgba(245,158,11,0.2) 0%, transparent 70%);
+      filter: blur(28px);
+      pointer-events: none;
+    }
+    .wordmark {
+      font-size: 3.2rem; font-weight: 700; letter-spacing: -2px;
+      line-height: 1; position: relative; z-index: 1; margin-bottom: 12px;
+    }
+    .wordmark .part-q { color: var(--text); }
+    .wordmark .part-f { color: var(--accent); }
+    .subtitle {
+      color: var(--text-secondary); font-size: 0.98rem; font-weight: 400;
+      position: relative; z-index: 1; margin-bottom: 30px;
+    }
+    .structures-badge { display: flex; justify-content: center; gap: 8px; flex-wrap: wrap; position: relative; z-index: 1; }
+    .badge {
+      display: inline-flex; align-items: center; gap: 5px;
+      padding: 5px 15px; border-radius: 100px;
+      font-size: 0.77rem; font-weight: 600; border: 1px solid;
+      transition: transform 0.18s, filter 0.18s;
+    }
+    .badge:hover { transform: translateY(-2px); filter: brightness(1.15); }
+    .badge-amber { background: var(--accent-dim); border-color: rgba(245,158,11,0.28); color: var(--accent); }
+    .badge-green  { background: var(--green-dim);  border-color: rgba(16,185,129,0.28);  color: var(--green); }
+    .badge-rose   { background: var(--rose-dim);   border-color: rgba(251,113,133,0.28); color: var(--rose); }
+    .badge-sand   { background: var(--sand-dim);   border-color: rgba(201,169,110,0.28); color: var(--sand); }
+    .panel {
+      background: var(--card-bg); border: 1px solid var(--card-border);
+      border-radius: 16px; padding: 24px; margin-bottom: 18px;
+      transition: border-color 0.2s;
+    }
+    .panel:hover { border-color: rgba(255,255,255,0.11); }
+    .panel-title {
+      font-size: 0.75rem; font-weight: 700; text-transform: uppercase;
+      letter-spacing: 0.09em; color: var(--text-muted); margin-bottom: 18px;
+      display: flex; align-items: center; justify-content: space-between;
+    }
+    .panel-label { display: flex; align-items: center; gap: 8px; }
+    .dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+    .dot-amber { background: var(--accent); box-shadow: 0 0 8px var(--accent); }
+    .dot-green  { background: var(--green);  box-shadow: 0 0 8px var(--green); }
+    .dot-rose   { background: var(--rose);   box-shadow: 0 0 8px var(--rose); }
+    .search-container { position: relative; }
     .search-bar-row { display: flex; gap: 10px; }
     input[type="text"], input[type="number"] {
-      flex: 1; padding: 12px 16px; border-radius: 8px; border: 1px solid var(--border); background: #0f172a; color: #fff; font-size: 1rem;
+      flex: 1; padding: 13px 18px; border-radius: 10px;
+      border: 1px solid var(--border); background: var(--input-bg);
+      color: var(--text); font-size: 0.96rem;
+      font-family: "Space Grotesk", sans-serif; font-weight: 400;
+      transition: border-color 0.2s, box-shadow 0.2s, background 0.2s;
     }
-    input:focus { outline: none; border-color: var(--accent); }
+    input[type="text"]::placeholder { color: var(--text-muted); }
+    input:focus {
+      outline: none; border-color: rgba(245,158,11,0.45);
+      background: rgba(255,255,255,0.07); box-shadow: 0 0 0 3px rgba(245,158,11,0.09);
+    }
     button {
-      background: var(--accent); color: #0f172a; border: none; font-weight: 600; padding: 12px 20px; border-radius: 8px; cursor: pointer; transition: 0.2s;
+      background: var(--accent); color: #190e00; border: none;
+      font-weight: 700; font-family: "Space Grotesk", sans-serif;
+      font-size: 0.88rem; letter-spacing: 0.02em;
+      padding: 13px 24px; border-radius: 10px; cursor: pointer;
+      white-space: nowrap;
+      transition: background 0.15s, transform 0.12s, box-shadow 0.15s;
     }
-    button:hover { background: var(--accent-hover); }
-    
+    button:hover {
+      background: var(--accent-hover); transform: translateY(-1px);
+      box-shadow: 0 6px 20px rgba(245,158,11,0.35);
+    }
+    button:active { transform: translateY(0); box-shadow: none; }
     .autocomplete-box {
-      position: absolute; top: 100%; left: 0; right: 0; background: #1e293b; border: 1px solid var(--border); border-radius: 8px; margin-top: 4px; z-index: 100; display: none; overflow: hidden; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.5);
+      position: absolute; top: calc(100% + 6px); left: 0; right: 0;
+      background: #15120a; border: 1px solid rgba(245,158,11,0.2);
+      border-radius: 12px; z-index: 200; display: none; overflow: hidden;
+      box-shadow: 0 18px 48px rgba(0,0,0,0.7), 0 0 0 1px rgba(245,158,11,0.07);
     }
     .autocomplete-item {
-      padding: 10px 16px; display: flex; justify-content: space-between; cursor: pointer; border-bottom: 1px solid #334155; font-size: 0.95rem;
+      padding: 11px 18px; display: flex; justify-content: space-between;
+      align-items: center; cursor: pointer;
+      border-bottom: 1px solid rgba(255,255,255,0.04);
+      font-size: 0.92rem; transition: background 0.13s;
     }
-    .autocomplete-item:hover { background: #334155; }
-    .autocomplete-freq { color: var(--accent); font-size: 0.8rem; }
-    
-    .quick-queries { display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap; }
-    .quick-btn { background: #334155; color: var(--text-muted); font-size: 0.8rem; padding: 5px 10px; border-radius: 6px; cursor: pointer; border: none; }
-    .quick-btn:hover { background: var(--accent); color: #0f172a; }
-    
-    .range-row { display: flex; gap: 12px; align-items: center; }
-    .range-row input { max-width: 140px; }
-    
-    .results-list { display: flex; flex-direction: column; gap: 14px; margin-top: 10px; }
-    .result-card { background: #0f172a; border: 1px solid var(--border); border-radius: 8px; padding: 16px; }
-    .result-header { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 6px; }
-    .result-title { font-size: 1.1rem; color: #fff; font-weight: 600; }
-    .result-meta { font-size: 0.82rem; color: var(--accent); display: flex; gap: 12px; }
-    .snippet { font-size: 0.92rem; color: var(--text-muted); line-height: 1.45; }
-    .empty-state { text-align: center; color: var(--text-muted); padding: 30px; font-size: 0.95rem; }
-    
-    .id-tag { background: #0284c7; color: #fff; font-size: 0.75rem; padding: 2px 7px; border-radius: 4px; margin-right: 6px; }
+    .autocomplete-item:last-child { border-bottom: none; }
+    .autocomplete-item:hover { background: rgba(245,158,11,0.07); }
+    .autocomplete-freq {
+      font-size: 0.73rem; font-weight: 700; color: var(--accent);
+      background: var(--accent-dim); padding: 2px 9px; border-radius: 100px;
+    }
+    .quick-queries { display: flex; gap: 7px; margin-top: 14px; flex-wrap: wrap; align-items: center; }
+    .try-label { font-size: 0.73rem; color: var(--text-muted); font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; }
+    .quick-btn {
+      background: rgba(255,255,255,0.04); color: var(--text-secondary);
+      font-size: 0.79rem; font-family: "Space Grotesk", sans-serif; font-weight: 500;
+      padding: 5px 13px; border-radius: 100px; cursor: pointer;
+      border: 1px solid var(--border); transition: all 0.16s;
+    }
+    .quick-btn:hover {
+      background: var(--accent-dim); border-color: rgba(245,158,11,0.32);
+      color: var(--accent); transform: translateY(-1px); box-shadow: none;
+    }
+    .range-row { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+    .range-row input[type="number"] { max-width: 110px; flex: none; }
+    .range-label { font-size: 0.84rem; color: var(--text-secondary); font-weight: 500; }
+    #range-results {
+      margin-top: 14px; font-size: 0.86rem; padding: 12px 16px;
+      background: var(--green-dim); border: 1px solid rgba(16,185,129,0.18);
+      border-radius: 10px; display: none; line-height: 1.6;
+    }
+    #range-results.visible { display: block; }
+    #range-results strong { color: var(--green); }
+    .results-list { display: flex; flex-direction: column; gap: 11px; }
+    .result-card {
+      background: rgba(255,255,255,0.025); border: 1px solid var(--border);
+      border-radius: 12px; padding: 18px 20px;
+      transition: border-color 0.18s, background 0.18s, transform 0.14s;
+    }
+    .result-card:hover {
+      border-color: rgba(245,158,11,0.22); background: rgba(245,158,11,0.025);
+      transform: translateX(3px);
+    }
+    .result-header {
+      display: flex; justify-content: space-between;
+      align-items: flex-start; margin-bottom: 10px; gap: 12px;
+    }
+    .result-left { display: flex; align-items: flex-start; gap: 10px; flex: 1; min-width: 0; }
+    .rank-badge {
+      font-size: 0.68rem; font-weight: 700; color: var(--text-muted);
+      background: rgba(255,255,255,0.05); border: 1px solid var(--border);
+      border-radius: 6px; padding: 3px 7px; flex-shrink: 0; margin-top: 2px;
+    }
+    .result-info { min-width: 0; }
+    .result-title { font-size: 1rem; color: var(--text); font-weight: 600; line-height: 1.3; margin-bottom: 3px; }
+    .doc-id { font-size: 0.68rem; font-weight: 700; color: var(--text-muted); letter-spacing: 0.06em; text-transform: uppercase; }
+    .result-pills { display: flex; gap: 6px; flex-shrink: 0; align-items: center; flex-wrap: wrap; justify-content: flex-end; }
+    .pill { font-size: 0.73rem; font-weight: 700; padding: 3px 10px; border-radius: 100px; white-space: nowrap; }
+    .pill-score   { background: var(--accent-dim); color: var(--accent); }
+    .pill-matches { background: var(--green-dim);  color: var(--green); }
+    .score-bar { height: 2px; background: rgba(255,255,255,0.05); border-radius: 2px; margin-bottom: 11px; overflow: hidden; }
+    .score-bar-fill {
+      height: 100%; border-radius: 2px;
+      background: linear-gradient(90deg, var(--accent) 0%, var(--green) 100%);
+      transition: width 0.6s cubic-bezier(0.4,0,0.2,1);
+    }
+    .snippet { font-size: 0.87rem; color: var(--text-muted); line-height: 1.6; font-weight: 400; }
+    .empty-state { text-align: center; color: var(--text-muted); padding: 48px 20px; font-size: 0.92rem; }
+    .empty-icon { font-size: 2.4rem; margin-bottom: 12px; opacity: 0.45; }
+    .status-dot {
+      display: inline-flex; align-items: center; gap: 6px;
+      font-size: 0.75rem; font-weight: 600; color: var(--green);
+    }
+    .status-dot::before {
+      content: ""; display: inline-block; width: 7px; height: 7px;
+      border-radius: 50%; background: var(--green);
+      animation: pulse-g 2.2s infinite;
+    }
+    @keyframes pulse-g {
+      0%   { box-shadow: 0 0 0 0 rgba(16,185,129,0.5); }
+      70%  { box-shadow: 0 0 0 6px rgba(16,185,129,0); }
+      100% { box-shadow: 0 0 0 0 rgba(16,185,129,0); }
+    }
+    ::-webkit-scrollbar { width: 5px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.08); border-radius: 3px; }
+    ::-webkit-scrollbar-thumb:hover { background: rgba(245,158,11,0.3); }
   </style>
 </head>
 <body>
   <header>
-    <h1>Query<span>Forge</span></h1>
-    <p class="subtitle">High-Performance Text Search Engine Using Advanced Data Structures</p>
+    <div class="wordmark"><span class="part-q">Query</span><span class="part-f">Forge</span></div>
+    <p class="subtitle">High-Performance Text Search Engine &middot; Advanced Data Structures &middot; C++17</p>
     <div class="structures-badge">
-      <span class="badge">🌲 Trie (Prefix Autocomplete)</span>
-      <span class="badge">🔤 Suffix Array (Substring Search)</span>
-      <span class="badge">⛰️ Max-Heap (Top-K Ranking)</span>
-      <span class="badge">⚖️ AVL Tree (Range Lookup)</span>
+      <span class="badge badge-amber">&#127810; Trie &mdash; Prefix Autocomplete</span>
+      <span class="badge badge-green">&#128288; Suffix Array &mdash; Substring Match</span>
+      <span class="badge badge-rose">&#9968;&#65039; Max-Heap &mdash; Top-K Ranking</span>
+      <span class="badge badge-sand">&#9878;&#65039; AVL Tree &mdash; Range Lookup</span>
     </div>
   </header>
 
-  <!-- Search Panel -->
   <div class="panel">
     <div class="panel-title">
-      <span>Substring Search & Live Autocomplete</span>
-      <span id="index-status" style="font-size:0.85rem; color:#4ade80;">● Indexes Ready</span>
+      <div class="panel-label"><span class="dot dot-amber"></span>Substring Search &amp; Live Autocomplete</div>
+      <span class="status-dot">Indexes Ready</span>
     </div>
     <div class="search-container">
       <div class="search-bar-row">
-        <input type="text" id="query-input" placeholder="Search substring or type prefix (e.g., 'alg', 'tree', 'binary')..." autocomplete="off">
+        <input type="text" id="query-input"
+               placeholder="Search substring or type prefix &mdash; e.g. alg, tree, binary&hellip;"
+               autocomplete="off">
         <button id="search-btn" onclick="executeSearch()">Search</button>
       </div>
       <div id="autocomplete-box" class="autocomplete-box"></div>
     </div>
     <div class="quick-queries">
-      <span style="font-size:0.8rem; color:var(--text-muted); align-self:center;">Try:</span>
+      <span class="try-label">Try:</span>
       <button class="quick-btn" onclick="setQuery('algorithm')">algorithm</button>
       <button class="quick-btn" onclick="setQuery('data-structures')">data-structures</button>
       <button class="quick-btn" onclick="setQuery('search')">search</button>
@@ -250,57 +402,53 @@ const char* kHtmlPage = R"rawhtml(<!DOCTYPE html>
     </div>
   </div>
 
-  <!-- Range Query Panel (AVL Tree) -->
   <div class="panel">
-    <div class="panel-title">AVL Tree Ordered Range Query</div>
+    <div class="panel-title">
+      <div class="panel-label"><span class="dot dot-green"></span>AVL Tree &mdash; Ordered Range Query</div>
+    </div>
     <div class="range-row">
-      <label style="color:var(--text-muted); font-size:0.9rem;">From Doc ID:</label>
+      <span class="range-label">From Doc ID</span>
       <input type="number" id="from-id" value="2" min="1">
-      <label style="color:var(--text-muted); font-size:0.9rem;">To Doc ID:</label>
+      <span class="range-label">To Doc ID</span>
       <input type="number" id="to-id" value="6" min="1">
       <button onclick="executeRange()">Query Range</button>
     </div>
-    <div id="range-results" style="margin-top:12px; font-size:0.9rem; color:var(--text-muted);"></div>
+    <div id="range-results"></div>
   </div>
 
-  <!-- Results Panel -->
   <div class="panel">
-    <div class="panel-title">Search Results (<span id="result-count">0</span>)</div>
+    <div class="panel-title">
+      <div class="panel-label"><span class="dot dot-rose"></span>Search Results</div>
+      <span id="result-count" style="font-size:0.75rem;color:var(--text-muted);font-weight:700;"></span>
+    </div>
     <div id="results-list" class="results-list">
-      <div class="empty-state">Enter a query or select an autocomplete term to view ranked results.</div>
+      <div class="empty-state">
+        <div class="empty-icon">&#128269;</div>
+        Enter a query or pick an autocomplete suggestion to view ranked results.
+      </div>
     </div>
   </div>
 
   <script>
     const queryInput = document.getElementById('query-input');
-    const autoBox = document.getElementById('autocomplete-box');
+    const autoBox    = document.getElementById('autocomplete-box');
     let debounceTimer;
 
     queryInput.addEventListener('input', (e) => {
       const val = e.target.value.trim();
       clearTimeout(debounceTimer);
-      if (val.length === 0) {
-        autoBox.style.display = 'none';
-        return;
-      }
+      if (!val) { autoBox.style.display = 'none'; return; }
       debounceTimer = setTimeout(() => {
         fetch('/api/autocomplete?prefix=' + encodeURIComponent(val))
-          .then(res => res.json())
+          .then(r => r.json())
           .then(data => {
-            if (!data || data.length === 0) {
-              autoBox.style.display = 'none';
-              return;
-            }
+            if (!data || !data.length) { autoBox.style.display = 'none'; return; }
             autoBox.innerHTML = '';
             data.forEach(item => {
               const div = document.createElement('div');
               div.className = 'autocomplete-item';
-              div.innerHTML = `<span>${item.term}</span><span class="autocomplete-freq">Freq: ${item.freq}</span>`;
-              div.onclick = () => {
-                queryInput.value = item.term;
-                autoBox.style.display = 'none';
-                executeSearch();
-              };
+              div.innerHTML = '<span>' + item.term + '</span><span class="autocomplete-freq">&#215;' + item.freq + '</span>';
+              div.onclick = () => { queryInput.value = item.term; autoBox.style.display = 'none'; executeSearch(); };
               autoBox.appendChild(div);
             });
             autoBox.style.display = 'block';
@@ -309,49 +457,50 @@ const char* kHtmlPage = R"rawhtml(<!DOCTYPE html>
     });
 
     document.addEventListener('click', (e) => {
-      if (!autoBox.contains(e.target) && e.target !== queryInput) {
-        autoBox.style.display = 'none';
-      }
+      if (!autoBox.contains(e.target) && e.target !== queryInput) autoBox.style.display = 'none';
     });
 
     queryInput.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter') {
-        autoBox.style.display = 'none';
-        executeSearch();
-      }
+      if (e.key === 'Enter') { autoBox.style.display = 'none'; executeSearch(); }
     });
 
-    function setQuery(q) {
-      queryInput.value = q;
-      executeSearch();
-    }
+    function setQuery(q) { queryInput.value = q; executeSearch(); }
 
     function executeSearch() {
       const q = queryInput.value.trim();
       if (!q) return;
       fetch('/api/search?q=' + encodeURIComponent(q) + '&limit=10')
-        .then(res => res.json())
+        .then(r => r.json())
         .then(results => {
           const container = document.getElementById('results-list');
-          document.getElementById('result-count').innerText = results.length;
-          if (results.length === 0) {
-            container.innerHTML = '<div class="empty-state">No matching documents found for "' + q + '".</div>';
+          const countEl   = document.getElementById('result-count');
+          countEl.textContent = results.length ? results.length + ' result' + (results.length !== 1 ? 's' : '') : '';
+          if (!results.length) {
+            container.innerHTML = '<div class="empty-state"><div class="empty-icon">&#129513;</div>No matching documents found for &ldquo;' + q + '&rdquo;.</div>';
             return;
           }
+          const maxScore = Math.max.apply(null, results.map(r => r.score).concat([0.001]));
           container.innerHTML = '';
           results.forEach((r, idx) => {
             const card = document.createElement('div');
             card.className = 'result-card';
-            card.innerHTML = `
-              <div class="result-header">
-                <div class="result-title"><span class="id-tag">ID #${r.id}</span>${r.title}</div>
-                <div class="result-meta">
-                  <span>Score: <strong>${r.score.toFixed(3)}</strong></span>
-                  <span>Matches: <strong>${r.matches}</strong></span>
-                </div>
-              </div>
-              <div class="snippet">${r.snippet}</div>
-            `;
+            const pct = Math.round((r.score / maxScore) * 100);
+            card.innerHTML =
+              '<div class="result-header">' +
+                '<div class="result-left">' +
+                  '<span class="rank-badge">#' + (idx+1) + '</span>' +
+                  '<div class="result-info">' +
+                    '<div class="result-title">' + r.title + '</div>' +
+                    '<div class="doc-id">DOC &middot; ' + r.id + '</div>' +
+                  '</div>' +
+                '</div>' +
+                '<div class="result-pills">' +
+                  '<span class="pill pill-score">Score ' + r.score.toFixed(3) + '</span>' +
+                  '<span class="pill pill-matches">' + r.matches + ' match' + (r.matches !== 1 ? 'es' : '') + '</span>' +
+                '</div>' +
+              '</div>' +
+              '<div class="score-bar"><div class="score-bar-fill" style="width:' + pct + '%"></div></div>' +
+              '<div class="snippet">' + r.snippet + '</div>';
             container.appendChild(card);
           });
         });
@@ -359,28 +508,27 @@ const char* kHtmlPage = R"rawhtml(<!DOCTYPE html>
 
     function executeRange() {
       const fromId = document.getElementById('from-id').value;
-      const toId = document.getElementById('to-id').value;
-      fetch(`/api/range?from=${fromId}&to=${toId}`)
-        .then(res => res.json())
+      const toId   = document.getElementById('to-id').value;
+      fetch('/api/range?from=' + fromId + '&to=' + toId)
+        .then(r => r.json())
         .then(ids => {
           const div = document.getElementById('range-results');
-          if (!ids || ids.length === 0) {
-            div.innerHTML = `No documents found in range [${fromId}, ${toId}].`;
+          div.className = 'visible';
+          if (!ids || !ids.length) {
+            div.innerHTML = 'No documents found in range [' + fromId + ', ' + toId + '].';
           } else {
-            div.innerHTML = `<strong>Matching IDs in AVL In-Order:</strong> [ ${ids.join(', ')} ] (${ids.length} documents)`;
+            const chips = ids.map(id =>
+              '<span style="background:rgba(16,185,129,0.14);color:#10b981;padding:2px 9px;border-radius:5px;font-size:0.8rem;font-weight:700;margin:0 2px;">' + id + '</span>'
+            ).join('');
+            div.innerHTML = '<strong>In-order AVL traversal [' + fromId + ' &rarr; ' + toId + ']:</strong>&nbsp;&nbsp;' + chips + '&nbsp;&nbsp;<span style="color:var(--text-muted);">(' + ids.length + ' doc' + (ids.length !== 1 ? 's' : '') + ')</span>';
           }
         });
     }
 
-    // Auto-search default term on load
-    window.onload = () => {
-      executeSearch();
-      executeRange();
-    };
+    window.onload = () => { executeSearch(); executeRange(); };
   </script>
 </body>
-</html>
-)rawhtml";
+</html>\n)rawhtml";
 
 void launchGuiServer(SearchEngine& engine, int port) {
     httplib::Server svr;
