@@ -1,0 +1,27 @@
+# Build directories
+build/
+bin/
+lib/
+out/
+.cache/
+
+# CMake artifacts
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+Makefile
+compile_commands.json
+CTestTestfile.cmake
+Testing/
+
+# IDE and Editor artifacts
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Logs and environment
+*.log
+.env
